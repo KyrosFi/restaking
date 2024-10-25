@@ -25,21 +25,19 @@ use jito_vault_sdk::inline_mpl_token_metadata::{
 };
 use log::{debug, info};
 use solana_account_decoder::UiAccountEncoding;
+use solana_program::message::v0::Message;
 use solana_program::pubkey::Pubkey;
 use solana_rpc_client::{nonblocking::rpc_client::RpcClient, rpc_client::SerializableTransaction};
 use solana_rpc_client_api::{
     config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType},
 };
-use solana_sdk::{
-    signature::{Keypair, Signer},
-    transaction::Transaction,
-};
+use solana_sdk::{bs58, signature::{Keypair, Signer}, transaction::Transaction};
 use solana_sdk::signer::EncodableKey;
 use spl_associated_token_account::{
     get_associated_token_address, instruction::create_associated_token_account_idempotent,
 };
-use jito_vault_client::instructions::{CreateTokenMetadataBuilder, SetDepositCapacityBuilder, SetSecondaryAdminBuilder};
+use jito_vault_client::instructions::{CreateTokenMetadataBuilder, SetAdminBuilder, SetDepositCapacityBuilder, SetSecondaryAdminBuilder};
 use jito_vault_client::types::VaultAdminRole;
 
 use crate::cli_args::CliConfig;
@@ -104,6 +102,11 @@ pub enum VaultActions {
         new_admin: String,
         /// Role
         role: String,
+    },
+    /// Set admin
+    BuildSetAdminTx {
+        vault: String,
+        new_admin: String
     },
     InitializeUpdateStateTracker {
         /// Vault account
@@ -269,6 +272,18 @@ impl VaultCliHandler {
                     vault,
                     new_admin,
                     role
+                ).await
+            }
+            VaultCommands::Vault {
+                action:
+                VaultActions::BuildSetAdminTx {
+                    vault,
+                    new_admin,
+                },
+            } => {
+                self.build_set_admin_tx(
+                    vault,
+                    new_admin,
                 ).await
             }
             VaultCommands::Vault {
@@ -611,6 +626,43 @@ impl VaultCliHandler {
         }
 
         info!("Transaction confirmed: {:?}", tx.get_signature());
+
+        Ok(())
+    }
+
+    pub async fn build_set_admin_tx(
+        &self,
+        vault: String,
+        new_admin: String,
+    ) -> Result<()> {
+        let keypair = self
+            .cli_config
+            .keypair
+            .as_ref()
+            .ok_or_else(|| anyhow!("Keypair not provided"))?;
+        let rpc_client = self.get_rpc_client();
+
+        let vault = Pubkey::from_str(&vault)?;
+        let new_admin = Pubkey::from_str(&new_admin)?;
+
+        let mut ix_builder = SetAdminBuilder::new();
+        ix_builder
+            .config(Config::find_program_address(&self.vault_program_id).0)
+            .vault(vault)
+            .old_admin(keypair.pubkey())
+            .new_admin(new_admin);
+
+        let mut tx = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
+            &[ix_builder.instruction()],
+            Some(&keypair.pubkey()),
+        ));
+
+        let blockhash = rpc_client.get_latest_blockhash().await?;
+        // tx.partial_sign(&keypair, blockhash);
+
+        let data = bs58::encode(bincode::serialize(&tx)?).into_string();
+
+        info!("Squads tx: {:?}", data);
 
         Ok(())
     }

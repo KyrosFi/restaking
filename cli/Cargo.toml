@@ -33,6 +33,7 @@ spl-associated-token-account = { workspace = true }
 spl-token = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+bincode = "1.3.3"
 
 [dev-dependencies]
 assert_matches = { workspace = true }
