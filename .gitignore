@@ -23,3 +23,5 @@ docs/api
 
 # Personal Helper Scripts
 .development
+
+config*.yml
