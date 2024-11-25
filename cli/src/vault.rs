@@ -110,11 +110,10 @@ pub enum VaultActions {
         /// NCN epoch to crank
         ncn_epoch: Option<u64>,
     },
+    /// Burns the withdrawal ticket, ending the withdrawal process
     BurnWithdrawalTicket {
         /// Vault account
         vault: String,
-        /// Minimum amount of VRT to mint
-        min_amount_out: u64,
     },
     /// Set admin
     BuildSetAdminTx {

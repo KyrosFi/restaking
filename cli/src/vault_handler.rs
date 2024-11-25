@@ -170,12 +170,8 @@ impl VaultCliHandler {
                     .await
             }
             VaultCommands::Vault {
-                action:
-                    VaultActions::BurnWithdrawalTicket {
-                        vault,
-                        min_amount_out,
-                    },
-            } => self.burn_withdrawal_ticket(vault, min_amount_out).await,
+                action: VaultActions::BurnWithdrawalTicket { vault },
+            } => self.burn_withdrawal_ticket(vault).await,
             VaultCommands::Vault {
                 action:
                 VaultActions::BuildSetAdminTx {
@@ -306,6 +302,11 @@ impl VaultCliHandler {
         let account = rpc_client.get_account(&pubkey).await?;
         let vault = Vault::try_from_slice_unchecked(&account.data)?;
         info!("vault at address {}: {:?}", pubkey, vault);
+
+        let config = Config::find_program_address(&self.vault_program_id).0;
+        let temp = rpc_client.get_account(&config).await?;
+        let config_data = Config::try_from_slice_unchecked(&temp.data)?;
+        info!("config at address {}: {:?}", config, config_data);
         Ok(())
     }
 
@@ -865,7 +866,7 @@ impl VaultCliHandler {
         Ok(())
     }
 
-    pub async fn burn_withdrawal_ticket(&self, vault: String, min_amount_out: u64) -> Result<()> {
+    pub async fn burn_withdrawal_ticket(&self, vault: String) -> Result<()> {
         let keypair = self
             .cli_config
             .keypair
