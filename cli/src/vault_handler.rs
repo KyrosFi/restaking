@@ -261,7 +261,7 @@ impl VaultCliHandler {
         let vault = Vault::find_program_address(&self.vault_program_id, &base.pubkey()).0;
 
         let vrt_mint = Keypair::new();
-        // let vrt_mint = Keypair::read_from_file(Path::new(&vrt_mint_path)).unwrap();
+        // let vrt_mint = Keypair::from_bytes([0,1,2,3]).unwrap();
 
         let mut ix_builder = InitializeVaultBuilder::new();
         ix_builder
@@ -497,6 +497,18 @@ impl VaultCliHandler {
         }
 
         info!("Transaction confirmed: {:?}", tx.get_signature());
+
+        // Base58 export
+        // TODO: You need to change admin in the ix_builder with the current admin
+
+        // let mut tx_b58 = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
+        //     &[ix_builder.instruction()],
+        //     Some(&keypair.pubkey()),
+        // ));
+
+        // let data = bs58::encode(bincode::serialize(&tx_b58)?).into_string();
+
+        // info!("Squads tx: {:?}", data);
 
         Ok(())
     }
