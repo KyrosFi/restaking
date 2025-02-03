@@ -2388,6 +2388,7 @@ version = "0.0.3"
 dependencies = [
  "anyhow",
  "assert_matches",
+ "bincode",
  "borsh 0.10.3",
  "bytemuck",
  "chrono",
@@ -2410,6 +2411,7 @@ dependencies = [
  "solana-sdk",
  "spl-associated-token-account",
  "spl-token",
+ "spl-token-2022 3.0.4",
  "thiserror",
  "tokio",
 ]

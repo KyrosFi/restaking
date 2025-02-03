@@ -34,6 +34,7 @@ use solana_rpc_client_api::{
     filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType},
 };
 use solana_sdk::{
+    bs58,
     signature::{Keypair, Signer},
     transaction::Transaction,
 };
@@ -700,26 +701,34 @@ impl VaultCliHandler {
             .ncn(ncn)
             .vault_ncn_ticket(vault_ncn_ticket)
             .ncn_vault_ticket(ncn_vault_ticket)
-            .payer(keypair.pubkey())
-            .admin(keypair.pubkey());
+            .payer(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap())
+            .admin(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap());
 
-        let blockhash = rpc_client.get_latest_blockhash().await?;
-        let tx = Transaction::new_signed_with_payer(
+        // let blockhash = rpc_client.get_latest_blockhash().await?;
+        // let tx = Transaction::new_signed_with_payer(
+        //     &[ix_builder.instruction()],
+        //     Some(&keypair.pubkey()),
+        //     &[keypair],
+        //     blockhash,
+        // );
+
+        // info!("Initialize Vault NCN Ticket");
+        // let result = rpc_client.send_and_confirm_transaction(&tx).await;
+
+        // if result.is_err() {
+        //     println!("Transaction failed: {:?}", result.err());
+        //     return Err(anyhow::anyhow!("Transaction failed"));
+        // }
+
+        // info!("Transaction confirmed: {:?}", result.unwrap());
+
+        // Base58 export
+        let mut tx_b58 = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
             &[ix_builder.instruction()],
-            Some(&keypair.pubkey()),
-            &[keypair],
-            blockhash,
-        );
-
-        info!("Initialize Vault NCN Ticket");
-        let result = rpc_client.send_and_confirm_transaction(&tx).await;
-
-        if result.is_err() {
-            println!("Transaction failed: {:?}", result.err());
-            return Err(anyhow::anyhow!("Transaction failed"));
-        }
-
-        info!("Transaction confirmed: {:?}", result.unwrap());
+            Some(&Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap()),
+        ));
+        let data = bs58::encode(bincode::serialize(&tx_b58)?).into_string();
+        info!("Squads tx: {:?}", data);
 
         Ok(())
     }
@@ -744,19 +753,27 @@ impl VaultCliHandler {
             .vault(vault)
             .ncn(ncn)
             .vault_ncn_ticket(vault_ncn_ticket)
-            .admin(keypair.pubkey());
+            .admin(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap());
 
-        let blockhash = rpc_client.get_latest_blockhash().await?;
-        let tx = Transaction::new_signed_with_payer(
+        // let blockhash = rpc_client.get_latest_blockhash().await?;
+        // let tx = Transaction::new_signed_with_payer(
+        //     &[ix_builder.instruction()],
+        //     Some(&keypair.pubkey()),
+        //     &[keypair],
+        //     blockhash,
+        // );
+
+        // info!("Warmup Vault NCN Ticket");
+        // let result = rpc_client.send_and_confirm_transaction(&tx).await?;
+        // info!("Transaction confirmed: {:?}", result);
+
+        // Base58 export
+        let mut tx_b58 = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
             &[ix_builder.instruction()],
             Some(&keypair.pubkey()),
-            &[keypair],
-            blockhash,
-        );
-
-        info!("Warmup Vault NCN Ticket");
-        let result = rpc_client.send_and_confirm_transaction(&tx).await?;
-        info!("Transaction confirmed: {:?}", result);
+        ));
+        let data = bs58::encode(bincode::serialize(&tx_b58)?).into_string();
+        info!("Squads tx: {:?}", data);
 
         Ok(())
     }
@@ -834,27 +851,35 @@ impl VaultCliHandler {
             .operator(operator)
             .operator_vault_ticket(operator_vault_ticket)
             .vault_operator_delegation(vault_operator_delegation)
-            .payer(keypair.pubkey())
-            .admin(keypair.pubkey());
+            .payer(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap())
+            .admin(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap());
 
-        let blockhash = rpc_client.get_latest_blockhash().await?;
-        let tx = Transaction::new_signed_with_payer(
+        // let blockhash = rpc_client.get_latest_blockhash().await?;
+        // let tx = Transaction::new_signed_with_payer(
+        //     &[ix_builder.instruction()],
+        //     Some(&keypair.pubkey()),
+        //     &[keypair],
+        //     blockhash,
+        // );
+        // info!(
+        //     "Initializing vault operator delegation transaction: {:?}",
+        //     tx.get_signature()
+        // );
+        // let result = rpc_client.send_and_confirm_transaction(&tx).await;
+
+        // if result.is_err() {
+        //     return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+        // }
+
+        // info!("Transaction confirmed: {:?}", tx.get_signature());
+
+        // Base58 export
+        let mut tx_b58 = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
             &[ix_builder.instruction()],
-            Some(&keypair.pubkey()),
-            &[keypair],
-            blockhash,
-        );
-        info!(
-            "Initializing vault operator delegation transaction: {:?}",
-            tx.get_signature()
-        );
-        let result = rpc_client.send_and_confirm_transaction(&tx).await;
-
-        if result.is_err() {
-            return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
-        }
-
-        info!("Transaction confirmed: {:?}", tx.get_signature());
+            Some(&Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap()),
+        ));
+        let data = bs58::encode(bincode::serialize(&tx_b58)?).into_string();
+        info!("Squads tx: {:?}", data);
 
         Ok(())
     }
@@ -888,25 +913,33 @@ impl VaultCliHandler {
             .vault(vault)
             .operator(operator)
             .vault_operator_delegation(vault_operator_delegation)
-            .admin(keypair.pubkey())
+            .admin(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap())
             .amount(amount);
 
-        let blockhash = rpc_client.get_latest_blockhash().await?;
-        let tx = Transaction::new_signed_with_payer(
+        // let blockhash = rpc_client.get_latest_blockhash().await?;
+        // let tx = Transaction::new_signed_with_payer(
+        //     &[ix_builder.instruction()],
+        //     Some(&keypair.pubkey()),
+        //     &[keypair],
+        //     blockhash,
+        // );
+        // info!("Delegating to operator: {:?}", tx.get_signature());
+        // let result = rpc_client.send_and_confirm_transaction(&tx).await;
+
+        // if result.is_err() {
+        //     return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+        // }
+
+        // info!("Transaction confirmed: {:?}", tx.get_signature());
+        // info!("Delegated {} tokens to {}", amount, operator);
+
+        // Base58 export
+        let mut tx_b58 = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
             &[ix_builder.instruction()],
-            Some(&keypair.pubkey()),
-            &[keypair],
-            blockhash,
-        );
-        info!("Delegating to operator: {:?}", tx.get_signature());
-        let result = rpc_client.send_and_confirm_transaction(&tx).await;
-
-        if result.is_err() {
-            return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
-        }
-
-        info!("Transaction confirmed: {:?}", tx.get_signature());
-        info!("Delegated {} tokens to {}", amount, operator);
+            Some(&Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap()),
+        ));
+        let data = bs58::encode(bincode::serialize(&tx_b58)?).into_string();
+        info!("Squads tx: {:?}", data);
 
         Ok(())
     }
