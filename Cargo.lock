@@ -2525,6 +2525,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "jito-vault-auto-delegate"
+version = "0.0.3"
+dependencies = [
+ "anyhow",
+ "clap 4.5.16",
+ "dotenv",
+ "env_logger 0.10.2",
+ "futures",
+ "jito-account-traits-derive",
+ "jito-bytemuck",
+ "jito-jsm-core",
+ "jito-restaking-client",
+ "jito-restaking-core",
+ "jito-vault-client",
+ "jito-vault-core",
+ "jito-vault-sdk",
+ "log",
+ "solana-account-decoder",
+ "solana-metrics",
+ "solana-rpc-client",
+ "solana-rpc-client-api",
+ "solana-sdk",
+ "spl-associated-token-account",
+ "spl-token",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "jito-vault-client"
 version = "0.0.3"
 dependencies = [

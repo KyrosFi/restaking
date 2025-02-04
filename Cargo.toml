@@ -14,7 +14,8 @@ members = [
     "shank-cli",
     "vault_core",
     "vault_program",
-    "vault_sdk"]
+    "vault_sdk",
+    "auto-delegate"]
 
 resolver = "2"
 
