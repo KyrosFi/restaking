@@ -14,9 +14,9 @@ use jito_vault_client::{
         InitializeConfigBuilder, InitializeVaultBuilder, InitializeVaultNcnTicketBuilder,
         InitializeVaultOperatorDelegationBuilder, InitializeVaultUpdateStateTrackerBuilder,
         MintToBuilder, SetConfigAdminBuilder, SetDepositCapacityBuilder,
-        WarmupVaultNcnTicketBuilder, DelegateTokenAccountBuilder
+        WarmupVaultNcnTicketBuilder, DelegateTokenAccountBuilder, SetSecondaryAdminBuilder
     },
-    types::WithdrawalAllocationMethod,
+    types::{VaultAdminRole, WithdrawalAllocationMethod}
 };
 use jito_vault_core::{
     burn_vault::BurnVault, config::Config, vault::Vault, vault_ncn_ticket::VaultNcnTicket,
@@ -203,7 +203,14 @@ impl VaultCliHandler {
             } => self.delegate_token_account(vault, delegate, token_mint, token_account).await,
             VaultCommands::Vault {
                 action: VaultActions::DelegatedTokenTransfer { token_account, recipient_pubkey, amount },
-            } => self.delegated_token_transfer(token_account, recipient_pubkey, amount).await,        
+            } => self.delegated_token_transfer(token_account, recipient_pubkey, amount).await,
+            VaultCommands::Vault {
+                action:
+                    VaultActions::SetSecondaryAdmin {
+                        vault,
+                        new_admin,
+                    },
+            } => self.set_secondary_admin(vault, new_admin).await,
         }
     }
 
@@ -1439,6 +1446,56 @@ impl VaultCliHandler {
         );
         rpc_client.send_and_confirm_transaction(&tx).await?;
         info!("Transaction confirmed: {:?}", tx.get_signature());
+        Ok(())
+    }
+
+    pub async fn set_secondary_admin(
+        &self,
+        vault: Pubkey,
+        new_admin: Pubkey,
+    ) -> Result<()> {
+        let keypair = self
+            .cli_config
+            .keypair
+            .as_ref()
+            .ok_or_else(|| anyhow!("Keypair not provided"))?;
+        let rpc_client = self.get_rpc_client();
+
+        let mut ix_builder = SetSecondaryAdminBuilder::new();
+        ix_builder
+            .config(Config::find_program_address(&self.vault_program_id).0)
+            .vault(vault)
+            .admin(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap())
+            .new_admin(new_admin)
+            .vault_admin_role(VaultAdminRole::DelegationAdmin);
+
+        // Base58 export
+        let mut tx_b58 = Transaction::new_unsigned(solana_program::message::legacy::Message::new(
+            &[ix_builder.instruction()],
+            Some(&Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap()),
+        ));
+        let data = bs58::encode(bincode::serialize(&tx_b58)?).into_string();
+        info!("Squads tx: {:?}", data);
+        
+        // let recent_blockhash = rpc_client.get_latest_blockhash().await?;
+        // let tx = Transaction::new_signed_with_payer(
+        //     &[builder.instruction()],
+        //     Some(&keypair.pubkey()),
+        //     &[keypair],
+        //     recent_blockhash,
+        // );
+
+        // info!("Vault secondary admin instruction: {:?}", builder);
+        // info!(
+        //     "Vault secondary admin transaction signature: {:?}",
+        //     tx.get_signature()
+        // );
+        // rpc_client
+        //     .send_and_confirm_transaction(&tx)
+        //     .await
+        //     .map_err(|e| anyhow!(e.to_string()))?;
+        // info!("Transaction confirmed: {:?}", tx.get_signature());
+
         Ok(())
     }
 }

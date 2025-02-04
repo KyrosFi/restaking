@@ -1,4 +1,5 @@
 use clap::{command, Subcommand};
+use jito_vault_client::types::VaultAdminRole;
 use solana_program::pubkey::Pubkey;
 
 #[derive(Subcommand)]
@@ -199,5 +200,12 @@ pub enum VaultActions {
         recipient_pubkey: String,
         /// The amount to transfer
         amount: u64,
+    },
+    /// Set Secondary Admin
+    SetSecondaryAdmin {
+        /// The vault pubkey
+        vault: Pubkey,
+        /// New admin pubkey
+        new_admin: Pubkey
     },
 }
