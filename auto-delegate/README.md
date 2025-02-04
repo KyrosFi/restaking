@@ -20,7 +20,7 @@ The Jito Vault Auto Delegate bot is a permissionless utility that must be run at
 To run the cranker with a specific vault and restaking program:
 
 ```bash
-cargo run -p jito-vault-cranker -- \
+cargo run -p jito-vault-auto-delegate -- \
   --keypair-path <KEYPAIR_PATH> \
   --rpc-url <RPC_URL> \
   --vault-program-id "Vau1t6sLNxnzB7ZDsef8TLbPLfyZMYXH8WTNqUdm9g8" \
