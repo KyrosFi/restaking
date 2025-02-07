@@ -238,8 +238,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             tokio::time::sleep(Duration::from_secs(30)).await;
 
-            info!("Sending the funds to {}", vault_to_ata);
-
             let payer_to_token_account = get_associated_token_address(&payer.pubkey(), &to_token);
 
             let to_balance = rpc_client
@@ -251,6 +249,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             if to_balance.amount.parse::<u64>().unwrap() < 100000 {
                 info!("Not enough funds to send.");
             } else {
+                info!("Sending the funds to {}", vault_to_ata);
                 let transfer_ix = transfer(
                     &spl_token::id(),
                     &payer_to_token_account,
