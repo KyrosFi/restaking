@@ -163,7 +163,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             if from_token_account.amount.parse::<u64>().unwrap() < 100000000 {
                 // 0.1 JitoSOL minimum
-                info!("Not enough funds to dump.");
+                info!("Not enough funds to pull.");
             } else {
                 let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
                 info!("Payer's associated token account for {}: {}", from_token, payer_from_token_account);
@@ -194,8 +194,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             tokio::time::sleep(Duration::from_secs(10)).await;
 
-            info!("Dumping the funds to {}", to_token);
-
             let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
             let payer_from_token_account_balance = rpc_client
                 .get_token_account_balance(&payer_from_token_account)
@@ -203,9 +201,9 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .context("Failed to get token account balance")?;
 
             if payer_from_token_account_balance.amount.parse::<u64>().unwrap() < 100000000 {
-                info!("Not enough funds to dump.");
-                break;
+                info!("Not enough funds to swap.");
             } else {
+                info!("Dumping the funds to {}", to_token);
                 let jupiter_swap_api_client = JupiterSwapApiClient::new("https://quote-api.jup.ag/v6".to_string());
 
                 let quote_request = QuoteRequest {
@@ -252,7 +250,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             if to_balance.amount.parse::<u64>().unwrap() < 100000 {
                 info!("Not enough funds to send.");
-                break;
             } else {
                 let transfer_ix = transfer(
                     &spl_token::id(),
