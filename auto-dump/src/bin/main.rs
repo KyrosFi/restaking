@@ -238,9 +238,9 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 info!("> Transaction confirmed");
             }
 
-            info!("Sending the funds to {}", vault_to_ata);
+            tokio::time::sleep(Duration::from_secs(30)).await;
 
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            info!("Sending the funds to {}", vault_to_ata);
 
             let payer_to_token_account = get_associated_token_address(&payer.pubkey(), &to_token);
 
