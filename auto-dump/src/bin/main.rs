@@ -209,7 +209,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 let jupiter_swap_api_client = JupiterSwapApiClient::new("https://quote-api.jup.ag/v6".to_string());
 
                 let quote_request = QuoteRequest {
-                    amount: (from_token_account.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64,
+                    amount: (payer_from_token_account_balance.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64,
                     input_mint: from_token,
                     output_mint: to_token,
                     slippage_bps: 50,
