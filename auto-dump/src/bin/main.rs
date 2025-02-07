@@ -165,70 +165,83 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 // 0.1 JitoSOL minimum
                 info!("Not enough funds to dump.");
                 break;
+            } else {
+                let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
+                info!("Payer's associated token account for {}: {}", from_token, payer_from_token_account);
+    
+                let transfer_ix = transfer(
+                    &spl_token::id(),
+                    &vault_from_ata,
+                    &payer_from_token_account,
+                    &payer.pubkey(),
+                    &[],
+                    from_token_account.amount.parse::<u64>().unwrap(),
+                )?;
+    
+                let blockhash = rpc_client.get_latest_blockhash().await?;
+                let tx = Transaction::new_signed_with_payer(
+                    &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
+                    Some(&payer.pubkey()),
+                    &[&payer],
+                    blockhash,
+                );
+                info!("> Delegating token transfer: {:?}", tx.get_signature());
+                let result = rpc_client.send_and_confirm_transaction(&tx).await;
+                if result.is_err() {
+                    return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+                }
+                info!("> Transaction confirmed: {:?}", tx.get_signature());
             }
-
-            let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
-            info!("Payer's associated token account for {}: {}", from_token, payer_from_token_account);
-
-            let transfer_ix = transfer(
-                &spl_token::id(),
-                &vault_from_ata,
-                &payer_from_token_account,
-                &payer.pubkey(),
-                &[],
-                from_token_account.amount.parse::<u64>().unwrap(),
-            )?;
-
-            let blockhash = rpc_client.get_latest_blockhash().await?;
-            let tx = Transaction::new_signed_with_payer(
-                &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
-                Some(&payer.pubkey()),
-                &[&payer],
-                blockhash,
-            );
-            info!("> Delegating token transfer: {:?}", tx.get_signature());
-            let result = rpc_client.send_and_confirm_transaction(&tx).await;
-            if result.is_err() {
-                return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
-            }
-            info!("> Transaction confirmed: {:?}", tx.get_signature());
 
             tokio::time::sleep(Duration::from_secs(10)).await;
 
             info!("Dumping the funds to {}", to_token);
 
-            let jupiter_swap_api_client = JupiterSwapApiClient::new("https://quote-api.jup.ag/v6".to_string());
-
-            let quote_request = QuoteRequest {
-                amount: (from_token_account.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64,
-                input_mint: from_token,
-                output_mint: to_token,
-                slippage_bps: 50,
-                ..QuoteRequest::default()
-            };
-
-            let quote_response = jupiter_swap_api_client.quote(&quote_request).await.unwrap();
-
-            let swap_response = jupiter_swap_api_client
-                .swap(&SwapRequest {
-                    user_public_key: payer.pubkey(),
-                    quote_response,
-                    config: TransactionConfig::default(),
-                }, None)
+            let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
+            let payer_from_token_account_balance = rpc_client
+                .get_token_account_balance(&payer_from_token_account)
                 .await
-                .map_err(|e| anyhow::Error::new(e))?;
+                .context("Failed to get token account balance")?;
 
-            let versioned_transaction: VersionedTransaction = bincode::deserialize(&swap_response.swap_transaction).unwrap();
-            let signed_versioned_transaction = VersionedTransaction::try_new(versioned_transaction.message, &[&payer]).unwrap();
+            if payer_from_token_account_balance.amount.parse::<u64>().unwrap() < 100000000 {
+                info!("Not enough funds to dump.");
+                break;
+            } else {
+                let jupiter_swap_api_client = JupiterSwapApiClient::new("https://quote-api.jup.ag/v6".to_string());
 
-            // Send the raw transaction
-            let result = rpc_client.send_transaction(&signed_versioned_transaction).await;
-            if result.is_err() {
-                return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+                let quote_request = QuoteRequest {
+                    amount: (from_token_account.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64,
+                    input_mint: from_token,
+                    output_mint: to_token,
+                    slippage_bps: 50,
+                    ..QuoteRequest::default()
+                };
+    
+                let quote_response = jupiter_swap_api_client.quote(&quote_request).await.unwrap();
+    
+                let swap_response = jupiter_swap_api_client
+                    .swap(&SwapRequest {
+                        user_public_key: payer.pubkey(),
+                        quote_response,
+                        config: TransactionConfig::default(),
+                    }, None)
+                    .await
+                    .map_err(|e| anyhow::Error::new(e))?;
+    
+                let versioned_transaction: VersionedTransaction = bincode::deserialize(&swap_response.swap_transaction).unwrap();
+                let signed_versioned_transaction = VersionedTransaction::try_new(versioned_transaction.message, &[&payer]).unwrap();
+    
+                // Send the raw transaction
+                let result = rpc_client.send_transaction(&signed_versioned_transaction).await;
+                if result.is_err() {
+                    return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+                }
+                info!("> Transaction confirmed");
             }
-            info!("> Transaction confirmed");
 
             info!("Sending the funds to {}", vault_to_ata);
+
+            tokio::time::sleep(Duration::from_secs(10)).await;
 
             let payer_to_token_account = get_associated_token_address(&payer.pubkey(), &to_token);
 
@@ -238,30 +251,34 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .context("Failed to get token account balance")?;
             info!(" > Token balance of {} on wallet: {}", to_token, to_balance.amount);
 
-            tokio::time::sleep(Duration::from_secs(10)).await;
-            
-            let transfer_ix = transfer(
-                &spl_token::id(),
-                &payer_to_token_account,
-                &vault_to_ata,
-                &payer.pubkey(),
-                &[],
-                to_balance.amount.parse::<u64>().unwrap(),
-            )?;
+            if to_balance.amount.parse::<u64>().unwrap() < 100000 {
+                info!("Not enough funds to send.");
+                break;
+            } else {
+                let transfer_ix = transfer(
+                    &spl_token::id(),
+                    &payer_to_token_account,
+                    &vault_to_ata,
+                    &payer.pubkey(),
+                    &[],
+                    to_balance.amount.parse::<u64>().unwrap(),
+                )?;
+    
+                let blockhash = rpc_client.get_latest_blockhash().await?;
+                let tx = Transaction::new_signed_with_payer(
+                    &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
+                    Some(&payer.pubkey()),
+                    &[&payer],
+                    blockhash,
+                );
+                info!("> Sending token transfer to vault tx: {:?}", tx.get_signature());
+                let result = rpc_client.send_and_confirm_transaction(&tx).await;
+                if result.is_err() {
+                    return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+                }
 
-            let blockhash = rpc_client.get_latest_blockhash().await?;
-            let tx = Transaction::new_signed_with_payer(
-                &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
-                Some(&payer.pubkey()),
-                &[&payer],
-                blockhash,
-            );
-            info!("> Sending token transfer to vault tx: {:?}", tx.get_signature());
-            let result = rpc_client.send_and_confirm_transaction(&tx).await;
-            if result.is_err() {
-                return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+                info!("> Transaction confirmed: {:?}", tx.get_signature());
             }
-            info!("> Transaction confirmed: {:?}", tx.get_signature());
         }
         info!("Sleeping for {} seconds", args.crank_interval);
 
