@@ -164,7 +164,6 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             if from_token_account.amount.parse::<u64>().unwrap() < 100000000 {
                 // 0.1 JitoSOL minimum
                 info!("Not enough funds to dump.");
-                break;
             } else {
                 let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
                 info!("Payer's associated token account for {}: {}", from_token, payer_from_token_account);
