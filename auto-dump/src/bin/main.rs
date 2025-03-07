@@ -251,7 +251,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .await
                 .context("Failed to get token account balance")?;
 
-            let fee_wallet_ata = get_associated_token_address(Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap(), &from_token);
+            let fee_wallet_ata = get_associated_token_address(&Pubkey::from_str("42iznAJXXefUPmnYz6N6GCzFvXG42o3oTd2D1ymH4UmX").unwrap(), &from_token);
 
             if to_balance.amount.parse::<u64>().unwrap() < 100000 {
                 info!("Not enough funds to send.");
