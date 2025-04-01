@@ -88,41 +88,80 @@ impl fmt::Display for Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), anyhow::Error> {
+    const SELF_DELEGATE_PERCENT: u64 = 100;
+
     let operators_with_amounts = [
         (
-            Pubkey::from_str("29rxXT5zbTR1ctiooHtb1Sa1TD4odzhQHsrLz3D78G5w").unwrap(),
-            "Kiln",
-            0,
+            Pubkey::from_str("29rxXT5zbTR1ctiooHtb1Sa1TD4odzhQHsrLz3D78G5w").unwrap(), // Operator ID
+            "Kiln", // Operator Name
+            0, // SOL self Delegate
+            0, // JTO self Delegate
+            true, // SOL Delegate
+            true, // JTO Delegate
         ),
         (
             Pubkey::from_str("LKFpfXtBkH5b7D9mo8dPcjCLZCZpmLQC9ELkbkyVdah").unwrap(),
             "Luganodes",
             0,
+            0,
+            true,
+            true,
         ),
         (
             Pubkey::from_str("BFEsrxFPsBcY2hR5kgyfKnpwgEc8wYQdngvRukLQXwG2").unwrap(),
             "Helius",
             0,
+            0,
+            true,
+            true,
         ),
         (
             Pubkey::from_str("CA8PaNSoFWzvbCJ2oK3QxBEutgyHSTT5omEptpj8YHPY").unwrap(),
             "Temporal",
             0,
+            0,
+            true,
+            true,
         ),
         (
             Pubkey::from_str("859tThorUu4uskw4yXSHkW9xqeCJmG5vm4KXhjWirLwL").unwrap(),
             "Laine",
             0,
+            0,
+            true,
+            true,
         ),
         (
             Pubkey::from_str("GZxp4e2Tm3Pw9GyAaxuF6odT3XkRM96jpZkp3nxhoK4Y").unwrap(),
             "PierTwo",
             0,
+            0,
+            true,
+            true,
         ),
         (
             Pubkey::from_str("FzZ9EXmHv7ANCXijpALUBzCza6wYNprnsfaEHuoNx9sE").unwrap(),
             "Everstake",
             0,
+            0,
+            true,
+            true,
+        ),
+        (
+            Pubkey::from_str("5TGRFaLy3eF93pSNiPamCgvZUN3gzdYcs7jA3iCAsd1L").unwrap(),
+            "InfStones",
+            0,
+            0,
+            true,
+            true,
+        ),
+        (
+            Pubkey::from_str("EkroMQiZJfphVd9iPvR4zMCHasTW72Uh1mFYkTxtQuY6").unwrap(),
+            "Staking Facilities",
+            0,
+            288460 * 1_000_000_000,
+            false,
+            true,
         ),
     ];
 
@@ -201,10 +240,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         if total_stake_available > kysol_vault.tokens_deposited() / 100 {
             let total_refered_amounts = operators_with_amounts
                 .iter()
-                .map(|(_, _, amount)| (amount * 75) / 100) // 75% for each
+                .filter(|(_, _, _, _, sol_delegate, _)| *sol_delegate == true)
+                .map(|(_, _, amount, _, _, _)| (amount * SELF_DELEGATE_PERCENT) / 100) // 100% for each
                 .sum::<u64>();
             info!(
-                "Total jitoSOL refered amounts (75%): {:?}",
+                "Total jitoSOL refered amounts (100%): {:?}",
                 total_refered_amounts
             );
 
@@ -223,11 +263,16 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             info!("Checking for kySOL delegation to make to Operators. Slot: {slot}, Current Epoch: {epoch}");
 
-            for (operator_key, operator_name, amount) in operators_with_amounts {
+            for (operator_key, operator_name, amount, _, sol_delegate, _) in operators_with_amounts {
                 info!(
                     "Processing operator: {}, key: {} with a total of self stake of : {}",
                     operator_name, operator_key, amount
                 );
+
+                if sol_delegate == false {
+                    info!("Skipping operator: {}, key: {} because it is not a SOL delegate", operator_name, operator_key);
+                    continue;
+                }
 
                 let vault_operator_delegation = VaultOperatorDelegation::find_program_address(
                     &args.vault_program_id,
@@ -237,11 +282,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .0;
 
                 let amount_to_delegate_local =
-                    amount_to_delegate_per_operator + ((amount * 75) / 100);
+                    amount_to_delegate_per_operator + ((amount * SELF_DELEGATE_PERCENT) / 100);
 
                 info!(
                     "Delegating {} tokens to {}",
-                    amount_to_delegate_local, operator_name
+                    amount_to_delegate_local / 1_000_000_000, operator_name
                 );
 
                 let delegate_ix = vault_handler
@@ -297,10 +342,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         if total_stake_available_kyjto > kyjto_vault.tokens_deposited() / 100 {
             let total_refered_amounts_kyjto = operators_with_amounts
                 .iter()
-                .map(|(_, _, amount)| (amount * 75) / 100) // 75% for each
+                .filter(|(_, _, _, _, _, jto_delegate)| *jto_delegate == true)
+                .map(|(_, _, _, jto_amount, _, _)| (jto_amount * SELF_DELEGATE_PERCENT) / 100) // 100% for each
                 .sum::<u64>();
             info!(
-                "Total JTO refered amounts (75%): {:?}",
+                "Total JTO refered amounts (100%): {:?}",
                 total_refered_amounts_kyjto
             );
 
@@ -322,11 +368,16 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
 
             let mut instructions_kyjto = vec![];
 
-            for (operator_key, operator_name, amount) in operators_with_amounts {
+            for (operator_key, operator_name, _, amount, _, jto_delegate) in operators_with_amounts {
                 info!(
                     "Processing operator: {}, key: {} with a total of self stake of : {}",
                     operator_name, operator_key, amount
                 );
+
+                if jto_delegate == false {
+                    info!("Skipping operator: {}, key: {} because it is not a JTO delegate", operator_name, operator_key);
+                    continue;
+                }
 
                 let vault_operator_delegation = VaultOperatorDelegation::find_program_address(
                     &args.vault_program_id,
@@ -336,11 +387,11 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 .0;
 
                 let amount_to_delegate_local =
-                    amount_to_delegate_per_operator_kyjto + ((amount * 75) / 100);
+                    amount_to_delegate_per_operator_kyjto + ((amount * SELF_DELEGATE_PERCENT) / 100);
 
                 info!(
                     "Delegating {} JTO tokens to {}",
-                    amount_to_delegate_local, operator_name
+                    amount_to_delegate_local / 1_000_000_000, operator_name
                 );
                 let delegate_ix = vault_handler
                     .delegate_to_operator_instruction(
