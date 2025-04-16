@@ -115,14 +115,14 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             true,
             true,
         ),
-        // (
-        //     Pubkey::from_str("CA8PaNSoFWzvbCJ2oK3QxBEutgyHSTT5omEptpj8YHPY").unwrap(),
-        //     "Temporal",
-        //     0,
-        //     0,
-        //     true,
-        //     true,
-        // ),
+        (
+            Pubkey::from_str("CA8PaNSoFWzvbCJ2oK3QxBEutgyHSTT5omEptpj8YHPY").unwrap(),
+            "Temporal",
+            0,
+            0,
+            true,
+            true,
+        ),
         (
             Pubkey::from_str("859tThorUu4uskw4yXSHkW9xqeCJmG5vm4KXhjWirLwL").unwrap(),
             "Laine",
