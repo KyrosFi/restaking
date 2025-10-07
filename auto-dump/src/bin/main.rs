@@ -205,7 +205,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     info!("Not enough funds to swap.");
                 } else {
                     info!("Dumping the funds to {}", to_token);
-                    let jupiter_swap_api_client = JupiterSwapApiClient::new("https://quote-api.jup.ag/v6".to_string());
+                    let jupiter_swap_api_client = JupiterSwapApiClient::new("https://lite-api.jup.ag/swap/v1".to_string());
 
                     let quote_request = QuoteRequest {
                         amount: (payer_from_token_account_balance.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64,
