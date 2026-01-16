@@ -9,15 +9,76 @@ use jito_jsm_core::get_epoch;
 use jito_vault_auto_dump::{metrics::emit_vault_metrics, vault_handler::VaultHandler};
 use jito_vault_core::{vault::Vault, vault_operator_delegation::VaultOperatorDelegation};
 use jupiter_swap_api_client::{
-    quote::QuoteRequest, swap::SwapRequest, transaction_config::TransactionConfig,
+    swap::{SwapRequest, SwapResponse}, transaction_config::TransactionConfig,
     JupiterSwapApiClient,
 };
+use reqwest::Client as ReqwestClient;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, to_value};
 use log::{error, info};
 use solana_rpc_client::{nonblocking::rpc_client::RpcClient, rpc_client::SerializableTransaction};
 use solana_sdk::{pubkey::Pubkey, signature::{Keypair, read_keypair_file, Signer}, transaction::{Transaction, VersionedTransaction}, instruction::Instruction, address_lookup_table::{AddressLookupTableAccount, state::AddressLookupTable}, compute_budget::{ComputeBudgetInstruction}};
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::instruction::transfer;
 use std::str::FromStr;
+
+// Custom QuoteResponse struct that matches Jupiter's current API
+// fee_amount and fee_mint are now optional
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QuoteResponse {
+    pub input_mint: String,
+    pub in_amount: String,
+    pub output_mint: String,
+    pub out_amount: String,
+    pub other_amount_threshold: String,
+    pub swap_mode: String,
+    pub slippage_bps: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub platform_fee: Option<PlatformFee>,
+    pub price_impact_pct: String,
+    pub route_plan: Vec<RoutePlan>,
+    pub context_slot: u64,
+    pub time_taken: f64,
+    pub swap_usd_value: String,
+    pub simpler_route_used: bool,
+    pub most_reliable_amms_quote_report: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_incurred_slippage_for_quoting: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub other_route_plans: Option<serde_json::Value>,
+    pub loaded_longtail_token: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instruction_version: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlatformFee {
+    pub amount: String,
+    pub fee_bps: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RoutePlan {
+    pub swap_info: SwapInfo,
+    pub percent: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bps: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SwapInfo {
+    pub amm_key: String,
+    pub label: String,
+    pub input_mint: String,
+    pub output_mint: String,
+    pub in_amount: String,
+    pub out_amount: String,
+    pub out_amount_after_slippage: String,
+}
 
 #[derive(Parser)]
 struct Args {
@@ -64,6 +125,10 @@ struct Args {
     /// Priority fees (in microlamports per compute unit)
     #[arg(long, env, default_value = "10000")]
     priority_fees: u64,
+
+    /// Jupiter API key for authenticated requests
+    #[arg(long, env)]
+    jup_api_key: Option<String>,
 }
 
 impl fmt::Display for Args {
@@ -80,6 +145,7 @@ impl fmt::Display for Args {
             Crank Interval: {} seconds\n\
             Metrics Interval: {} seconds\n\
             Priority Fees: {} microlamports\n\
+            Jupiter API Key: {}\n\
             -------------------------------",
             self.rpc_url,
             self.keypair_path,
@@ -89,6 +155,7 @@ impl fmt::Display for Args {
             self.crank_interval,
             self.metrics_interval,
             self.priority_fees,
+            if self.jup_api_key.is_some() { "***" } else { "Not set" },
         )
     }
 }
@@ -205,26 +272,100 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     info!("Not enough funds to swap.");
                 } else {
                     info!("Dumping the funds to {}", to_token);
-                    let jupiter_swap_api_client = JupiterSwapApiClient::new("https://lite-api.jup.ag/swap/v1".to_string());
-
-                    let quote_request = QuoteRequest {
-                        amount: (payer_from_token_account_balance.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64,
-                        input_mint: from_token,
-                        output_mint: to_token,
-                        slippage_bps: 50,
-                        ..QuoteRequest::default()
-                    };
-        
-                    let quote_response = jupiter_swap_api_client.quote(&quote_request).await.unwrap();
-        
-                    let swap_response = jupiter_swap_api_client
-                        .swap(&SwapRequest {
-                            user_public_key: payer.pubkey(),
-                            quote_response,
-                            config: TransactionConfig::default(),
-                        }, None)
+                    let jupiter_base_url = "https://api.jup.ag/swap/v1";
+                    let http_client = ReqwestClient::new();
+                    
+                    let amount = (payer_from_token_account_balance.amount.parse::<u64>().unwrap() as f64 * 0.95) as u64;
+                    
+                    // Build quote request
+                    let mut quote_url = format!(
+                        "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps=50",
+                        jupiter_base_url,
+                        from_token,
+                        to_token,
+                        amount
+                    );
+                    
+                    // Get quote
+                    let mut quote_request_builder = http_client
+                        .get(&quote_url);
+                    
+                    if let Some(ref api_key) = args.jup_api_key {
+                        quote_request_builder = quote_request_builder.header("x-api-key", api_key);
+                    }
+                    
+                    let quote_http_response = quote_request_builder
+                        .send()
                         .await
-                        .map_err(|e| anyhow::Error::new(e))?;
+                        .context("Failed to send quote request to Jupiter")?;
+                    
+                    let status = quote_http_response.status();
+                    let response_text = quote_http_response
+                        .text()
+                        .await
+                        .context("Failed to read quote response body")?;
+                    
+                    if !status.is_success() {
+                        return Err(anyhow::anyhow!(
+                            "Jupiter quote API returned error status: {} ({}). Response body: {}",
+                            status,
+                            status.as_u16(),
+                            response_text
+                        ));
+                    }
+                    
+                    let quote_response: QuoteResponse = serde_json::from_str(&response_text)
+                        .with_context(|| {
+                            format!(
+                                "Failed to parse quote response. Status: {}, Response body: {}",
+                                status, response_text
+                            )
+                        })?;
+        
+                    // Build swap request
+                    let quote_response_value = to_value(&quote_response)
+                        .context("Failed to serialize quote response")?;
+                    let swap_request_body = json!({
+                        "userPublicKey": payer.pubkey().to_string(),
+                        "quoteResponse": quote_response_value,
+                        "config": {}
+                    });
+                    
+                    let mut swap_request_builder = http_client
+                        .post(&format!("{}/swap", jupiter_base_url))
+                        .json(&swap_request_body);
+                    
+                    if let Some(ref api_key) = args.jup_api_key {
+                        swap_request_builder = swap_request_builder.header("x-api-key", api_key);
+                    }
+                    
+                    let swap_http_response = swap_request_builder
+                        .send()
+                        .await
+                        .context("Failed to send swap request to Jupiter")?;
+                    
+                    let swap_status = swap_http_response.status();
+                    let swap_response_text = swap_http_response
+                        .text()
+                        .await
+                        .context("Failed to read swap response body")?;
+                    
+                    if !swap_status.is_success() {
+                        return Err(anyhow::anyhow!(
+                            "Jupiter swap API returned error status: {} ({}). Response body: {}",
+                            swap_status,
+                            swap_status.as_u16(),
+                            swap_response_text
+                        ));
+                    }
+                    
+                    let swap_response: SwapResponse = serde_json::from_str(&swap_response_text)
+                        .with_context(|| {
+                            format!(
+                                "Failed to parse swap response. Status: {}, Response body: {}",
+                                swap_status, swap_response_text
+                            )
+                        })?;
         
                     let versioned_transaction: VersionedTransaction = bincode::deserialize(&swap_response.swap_transaction).unwrap();
                     let signed_versioned_transaction = VersionedTransaction::try_new(versioned_transaction.message, &[&payer]).unwrap();
