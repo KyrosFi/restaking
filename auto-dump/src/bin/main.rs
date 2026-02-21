@@ -230,38 +230,38 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     .await
                     .context("Failed to get token account balance")?;
 
-                // if from_token_account.amount.parse::<u64>().unwrap() < 100000000 {
-                //     // 0.1 JitoSOL minimum
-                //     info!("Not enough funds to pull.");
-                // } else {
-                //     let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
-                //     info!("Payer's associated token account for {}: {}", from_token, payer_from_token_account);
+                if from_token_account.amount.parse::<u64>().unwrap() < 100000000 {
+                    // 0.1 JitoSOL minimum
+                    info!("Not enough funds to pull.");
+                } else {
+                    let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
+                    info!("Payer's associated token account for {}: {}", from_token, payer_from_token_account);
         
-                //     let transfer_ix = transfer(
-                //         &spl_token::id(),
-                //         &vault_from_ata,
-                //         &payer_from_token_account,
-                //         &payer.pubkey(),
-                //         &[],
-                //         from_token_account.amount.parse::<u64>().unwrap(),
-                //     )?;
+                    let transfer_ix = transfer(
+                        &spl_token::id(),
+                        &vault_from_ata,
+                        &payer_from_token_account,
+                        &payer.pubkey(),
+                        &[],
+                        from_token_account.amount.parse::<u64>().unwrap(),
+                    )?;
         
-                //     let blockhash = rpc_client.get_latest_blockhash().await?;
-                //     let tx = Transaction::new_signed_with_payer(
-                //         &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
-                //         Some(&payer.pubkey()),
-                //         &[&payer],
-                //         blockhash,
-                //     );
-                //     info!("> Delegating token transfer: {:?}", tx.get_signature());
-                //     let result = rpc_client.send_and_confirm_transaction(&tx).await;
-                //     if result.is_err() {
-                //         return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
-                //     }
-                //     info!("> Transaction confirmed: {:?}", tx.get_signature());
-                // }
+                    let blockhash = rpc_client.get_latest_blockhash().await?;
+                    let tx = Transaction::new_signed_with_payer(
+                        &[compute_budget_instruction.clone(), compute_unit_price_instruction.clone(), transfer_ix],
+                        Some(&payer.pubkey()),
+                        &[&payer],
+                        blockhash,
+                    );
+                    info!("> Delegating token transfer: {:?}", tx.get_signature());
+                    let result = rpc_client.send_and_confirm_transaction(&tx).await;
+                    if result.is_err() {
+                        return Err(anyhow::anyhow!("Transaction failed: {:?}", result.err()));
+                    }
+                    info!("> Transaction confirmed: {:?}", tx.get_signature());
+                }
 
-                // tokio::time::sleep(Duration::from_secs(10)).await;
+                tokio::time::sleep(Duration::from_secs(10)).await;
 
                 let payer_from_token_account = get_associated_token_address(&payer.pubkey(), &from_token);
                 let payer_from_token_account_balance = rpc_client
