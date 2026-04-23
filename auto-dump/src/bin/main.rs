@@ -78,7 +78,10 @@ struct SwapInfo {
     pub output_mint: String,
     pub in_amount: String,
     pub out_amount: String,
-    pub out_amount_after_slippage: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_amount_after_slippage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_context_slot: Option<String>,
 }
 
 #[derive(Parser)]
